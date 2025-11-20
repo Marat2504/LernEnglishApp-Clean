@@ -1,0 +1,54 @@
+import 'dotenv/config';  // Импортирует .env автоматически
+
+export default {
+  expo: {
+    name: "LernEnglishApp",
+    slug: "lernenglishapp",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/icon.png",
+    userInterfaceStyle: "light",
+    splash: {
+      image: "./assets/splash-icon.png",
+      resizeMode: "contain",
+      backgroundColor: "#ffffff"
+    },
+    extra: {
+      YANDEX_TRANSLATION_API_KEY: process.env.YANDEX_TRANSLATION_API_KEY,
+      YANDEX_SPEECH_API_KEY: process.env.YANDEX_SPEECH_API_KEY
+    },
+    ios: {
+      supportsTablet: true
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#ffffff"
+      },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      networkSecurityConfig: "network_security_config"
+    },
+    web: {
+      favicon: "./assets/favicon.png"
+    },
+    plugins: [
+      [
+        "expo-font",
+        {
+          fonts: ["./assets/fonts/Inter-Regular.otf"]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          android: {
+            compileSdkVersion: 34,
+            targetSdkVersion: 34,
+            useAndroidX: true
+          }
+        }
+      ]
+    ]
+  }
+};
