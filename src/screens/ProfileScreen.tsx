@@ -1,19 +1,15 @@
 // src/screens/ProfileScreen.tsx (экран статистики и достижений)
 import React, { useContext, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../styles/theme';
 import { AuthContext } from '../context/AuthContext';
-import { useCards } from '../hooks/useCards';
 import useStats from '../hooks/useStats';
 import LoadingIndicator from '../components/LoadingIndicator';
 
 export default function ProfileScreen() {
-  const navigation = useNavigation();
   const { logout: contextLogout } = useContext(AuthContext)!;
 
-  const { data: cards, isLoading: cardsLoading, error: cardsError } = useCards();
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useStats();
 
   useFocusEffect(
@@ -35,15 +31,55 @@ export default function ProfileScreen() {
     ]);
   };
 
-  // Calculate dynamic stats from server data
-  const weeklyTarget = 50;
-  const weeklyProgress = Math.min(stats?.learnedWords || 0, weeklyTarget);
+  const xpForLevel = (level: number): number => {
+    if (level === 1) return 0;
+    return 100 * (level * level - 2 * level + 3);
+  };
 
-  if (statsLoading || cardsLoading) {
+  const levelProgress = (stats: any): number => {
+    const currentLevel = stats?.currentLevel || 1;
+    const totalXp = stats?.totalXp || 0;
+    const currentLevelXp = xpForLevel(currentLevel);
+    const nextLevelXp = xpForLevel(currentLevel + 1);
+    const progress = (totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp);
+    return Math.min(Math.max(progress, 0), 1);
+  };
+
+  const getNextEnglishLevel = (currentLevel: number): string => {
+    if (currentLevel < 5) return 'A1';
+    if (currentLevel < 10) return 'A2';
+    if (currentLevel < 15) return 'B1';
+    if (currentLevel < 20) return 'B2';
+    if (currentLevel < 25) return 'C1';
+    if (currentLevel < 30) return 'C2';
+    return 'C2'; // Максимальный уровень
+  };
+
+  const englishLevelProgress = (stats: any): { progress: number; startXP: number; endXP: number } => {
+    const currentLevel = stats?.currentLevel || 1;
+    const currentXP = stats?.totalXp || 0;
+    if (currentLevel >= 30) return { progress: 1, startXP: 0, endXP: 0 }; // Максимальный уровень достигнут
+
+    let startLevel = 1;
+    let endLevel = 5;
+
+    if (currentLevel >= 5) { startLevel = 5; endLevel = 10; }
+    if (currentLevel >= 10) { startLevel = 10; endLevel = 15; }
+    if (currentLevel >= 15) { startLevel = 15; endLevel = 20; }
+    if (currentLevel >= 20) { startLevel = 20; endLevel = 25; }
+    if (currentLevel >= 25) { startLevel = 25; endLevel = 30; }
+
+    const startXP = xpForLevel(startLevel);
+    const endXP = xpForLevel(endLevel);
+    const progress = (currentXP - startXP) / (endXP - startXP);
+    return { progress: Math.min(Math.max(progress, 0), 1), startXP, endXP };
+  };
+
+  if (statsLoading) {
     return <LoadingIndicator text="Загрузка статистики..." />;
   }
 
-  if (statsError || cardsError) {
+  if (statsError) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Ошибка загрузки данных</Text>
@@ -56,7 +92,6 @@ export default function ProfileScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.card}>
           <Text style={styles.title}>Профиль и Статистика</Text>
-          <Text style={styles.subtitle}>Ваш прогресс в изучении английского</Text>
 
           {/* Статистика */}
           <View style={styles.statsSection}>
@@ -90,12 +125,12 @@ export default function ProfileScreen() {
               <Text style={styles.statValue}>{stats?.cardsAddedToday || 0}</Text>
             </View>
             <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Время обучения (сек):</Text>
-              <Text style={styles.statValue}>{stats?.timeSpentSec || 0}</Text>
+              <Text style={styles.statLabel}>Время обучения (мин):</Text>
+              <Text style={styles.statValue}>{Math.floor((stats?.timeSpentSec || 0) / 60)}</Text>
             </View>
             <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Время обучения сегодня (сек):</Text>
-              <Text style={styles.statValue}>{stats?.timeSpentTodaySec || 0}</Text>
+              <Text style={styles.statLabel}>Время обучения сегодня (мин):</Text>
+              <Text style={styles.statValue}>{Math.floor((stats?.timeSpentTodaySec || 0) / 60)}</Text>
             </View>
             <View style={styles.statRow}>
               <Text style={styles.statLabel}>Уровень английского:</Text>
@@ -103,76 +138,41 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Прогресс-бары */}
-          <View style={styles.progressSection}>
-            <Text style={styles.sectionTitle}>📈 Прогресс</Text>
+          {/* Прогресс к следующему уровню */}
+          <View style={styles.levelProgressSection}>
+            <Text style={styles.sectionTitle}>⬆️ Следующий уровень: {(stats?.currentLevel || 1) + 1}</Text>
             <View style={styles.progressItem}>
-              <Text style={styles.progressLabel}>Слова на этой неделе: {weeklyProgress}/{weeklyTarget}</Text>
+              <Text style={styles.progressLabel}>
+                XP: {stats?.totalXp || 0} / {xpForLevel((stats?.currentLevel || 1) + 1)}
+              </Text>
               <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${(weeklyProgress / weeklyTarget) * 100}%` }]} />
-              </View>
-            </View>
-            <View style={styles.progressItem}>
-              <Text style={styles.progressLabel}>Время обучения сегодня: {Math.floor((stats?.timeSpentTodaySec || 0) / 60)}/{60} мин</Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(((stats?.timeSpentTodaySec || 0) / 60 / 60) * 100, 100)}%` }]} />
-              </View>
-            </View>
-            <View style={styles.progressItem}>
-              <Text style={styles.progressLabel}>Карточек добавлено сегодня: {stats?.cardsAddedToday || 0}/10</Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(((stats?.cardsAddedToday || 0) / 10) * 100, 100)}%` }]} />
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.progressFill, { width: `${levelProgress(stats) * 100}%` }]}
+                />
+                <Text style={styles.progressText}>{Math.round(levelProgress(stats) * 100)}%</Text>
               </View>
             </View>
           </View>
 
-          {/* Достижения */}
-          <View style={styles.achievementsSection}>
-            <Text style={styles.sectionTitle}>🏆 Достижения</Text>
-            <View style={styles.achievementRow}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeEmoji}>🔥</Text>
-                <Text style={styles.badgeText}>Стрик 7 дней</Text>
+          {/* Прогресс к следующему уровню английского */}
+          <View style={styles.levelProgressSection}>
+            <Text style={styles.sectionTitle}>🌍 Следующий уровень английского: {getNextEnglishLevel(stats?.currentLevel || 1)}</Text>
+            <View style={styles.progressItem}>
+              <Text style={styles.progressLabel}>
+                XP: {stats?.totalXp || 0} / {englishLevelProgress(stats).endXP}
+              </Text>
+              <View style={styles.progressBar}>
+                <LinearGradient
+                  colors={['#f093fb', '#f5576c']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.progressFill, { width: `${englishLevelProgress(stats).progress * 100}%` }]}
+                />
+                <Text style={styles.progressText}>{Math.round(englishLevelProgress(stats).progress * 100)}%</Text>
               </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeEmoji}>📚</Text>
-                <Text style={styles.badgeText}>100 слов</Text>
-              </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeEmoji}>⚡</Text>
-                <Text style={styles.badgeText}>Молния</Text>
-              </View>
-            </View>
-            <View style={styles.achievementRow}>
-              <View style={styles.badge}>
-                <Text style={styles.badgeEmoji}>🎯</Text>
-                <Text style={styles.badgeText}>Точность 90%</Text>
-              </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeEmoji}>🗣️</Text>
-                <Text style={styles.badgeText}>Разговорчик</Text>
-              </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeEmoji}>🌟</Text>
-                <Text style={styles.badgeText}>Мастер</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Задания */}
-          <View style={styles.tasksSection}>
-            <Text style={styles.sectionTitle}>✅ Выполненные задания</Text>
-            <View style={styles.taskItem}>
-              <Text style={styles.taskText}>✅ Изучить 5 новых слов</Text>
-            </View>
-            <View style={styles.taskItem}>
-              <Text style={styles.taskText}>✅ Пройти 1 тест</Text>
-            </View>
-            <View style={styles.taskItem}>
-              <Text style={styles.taskText}>✅ Поговорить с ИИ 10 минут</Text>
-            </View>
-            <View style={styles.taskItem}>
-              <Text style={styles.taskText}>⏳ Добавить 3 новых слова (осталось 3)</Text>
             </View>
           </View>
 
@@ -247,6 +247,9 @@ const styles = StyleSheet.create({
   progressSection: {
     marginBottom: 24,
   },
+  levelProgressSection: {
+    marginBottom: 24,
+  },
   progressItem: {
     marginBottom: 12,
   },
@@ -256,15 +259,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   progressBar: {
-    height: 8,
+    height: 20,
     backgroundColor: '#e0e4ff',
     borderRadius: 4,
     overflow: 'hidden',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   progressFill: {
     height: '100%',
     backgroundColor: '#667eea',
     borderRadius: 4,
+    position: 'absolute',
+    left: 0,
+    top: 0,
+  },
+  progressText: {
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 'bold',
+    position: 'absolute',
+    textAlign: 'center',
   },
   achievementsSection: {
     marginBottom: 24,
