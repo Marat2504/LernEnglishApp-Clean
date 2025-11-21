@@ -1,7 +1,7 @@
 // src/screens/ProfileScreen.tsx (экран статистики и достижений)
-import React, { useContext } from 'react';
+import React, { useContext, useCallback } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../styles/theme';
 import { AuthContext } from '../context/AuthContext';
@@ -14,7 +14,13 @@ export default function ProfileScreen() {
   const { logout: contextLogout } = useContext(AuthContext)!;
 
   const { data: cards, isLoading: cardsLoading, error: cardsError } = useCards();
-  const { data: stats, isLoading: statsLoading, error: statsError } = useStats();
+  const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useStats();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchStats();
+    }, [refetchStats])
+  );
 
   const handleLogout = async () => {
     Alert.alert('Выход', 'Выйти из аккаунта?', [
