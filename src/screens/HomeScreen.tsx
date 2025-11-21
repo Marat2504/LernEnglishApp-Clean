@@ -27,7 +27,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 20 }}>
       {/* Ежедневные миссии */}
       <View style={styles.missionsContainer}>
         <Text style={styles.missionsTitle}>Ежедневные миссии</Text>
@@ -154,13 +154,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   missionsContainer: {
-    marginBottom: 20,
+    marginBottom:5,
   },
   missionsTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 10,
+    textAlign: 'center',
   },
   missionItem: {
     backgroundColor: '#fff',
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
-    marginTop: 30,
+    marginTop: 20,
     marginBottom: 15,
   },
   modesContainer: {
