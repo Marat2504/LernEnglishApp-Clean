@@ -1,10 +1,12 @@
 // src/screens/ProfileScreen.tsx (экран статистики и достижений)
-import React, { useContext, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet } from 'react-native';
+import React, { useContext, useCallback, useState } from 'react';
+import { View, Text, TouchableOpacity, Alert, ScrollView, StyleSheet, Modal, Pressable, TouchableWithoutFeedback } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AuthContext } from '../context/AuthContext';
 import useStats from '../hooks/useStats';
+import useAchievements from '../hooks/useAchievements';
+import { Achievement } from '../services/achievementsService';
 import LoadingIndicator from '../components/LoadingIndicator';
 
 export default function ProfileScreen() {
@@ -12,10 +14,21 @@ export default function ProfileScreen() {
 
   const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useStats();
 
+  const {
+    data: achievements,
+    isLoading: achievementsLoading,
+    error: achievementsError,
+    refetch: refetchAchievements,
+  } = useAchievements();
+
+const [modalVisible, setModalVisible] = useState(false);
+const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       refetchStats();
-    }, [refetchStats])
+      refetchAchievements();
+    }, [refetchStats, refetchAchievements])
   );
 
   const handleLogout = async () => {
@@ -176,6 +189,126 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Достижения (Achievements Section) */}
+          <View style={styles.achievementsSection}>
+            <Text style={styles.sectionTitle}>🏆 Достижения</Text>
+            {achievementsLoading ? (
+              <LoadingIndicator text="Загрузка достижений..." />
+            ) : achievementsError ? (
+              <Text style={styles.errorText}>Ошибка загрузки достижений</Text>
+            ) : (
+              <>
+                  {achievements && (() => {
+                    // Split achievements into completed and in-progress groups
+                    const completed = achievements.filter(a => a.progress === a.threshold);
+                    const inProgress = achievements.filter(a => a.progress !== a.threshold);
+
+                  // Sort groups by category
+                  const sortByCategory = (a: typeof achievements[0], b: typeof achievements[0]) => {
+                    if (a.category < b.category) return -1;
+                    if (a.category > b.category) return 1;
+                    return 0;
+                  };
+
+                  completed.sort(sortByCategory);
+                  inProgress.sort(sortByCategory);
+
+                  return (
+                    <>
+                      <Text style={styles.subSectionTitle}>Получены</Text>
+                      <View style={styles.achievementRow}>
+                        {completed.map((achievement) => (
+                          <TouchableOpacity
+                            key={achievement.id}
+                            style={[
+                              styles.badge,
+                              {
+                                backgroundColor: '#e0f7fa',
+                                opacity: 1,
+                              },
+                            ]}
+                            onPress={() => {
+                              setSelectedAchievement(achievement);
+                              setModalVisible(true);
+                            }}
+                          >
+                            <Text style={styles.badgeEmoji}>{achievement.icon}</Text>
+                            <Text style={styles.badgeText} numberOfLines={2} ellipsizeMode="tail">
+                              {achievement.name}
+                            </Text>
+                            <Text style={styles.badgeText}>
+                              {achievement.progress} / {achievement.threshold}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                </View>
+                <Text style={styles.subSectionTitle}>В процессе</Text>
+                <View style={styles.achievementRow}>
+                  {inProgress.map((achievement) => (
+                    <TouchableOpacity
+                      key={achievement.id}
+                      style={[
+                        styles.badge,
+                        {
+                          backgroundColor: '#ccc',
+                          opacity: 0.3,  // More faded for in-progress
+                        },
+                      ]}
+                      onPress={() => {
+                        setSelectedAchievement(achievement);
+                        setModalVisible(true);
+                      }}
+                    >
+                      <Text style={styles.badgeEmoji}>{achievement.icon}</Text>
+                      <Text style={styles.badgeText} numberOfLines={2} ellipsizeMode="tail">
+                        {achievement.name}
+                      </Text>
+                      <Text style={styles.badgeText}>
+                        {achievement.progress} / {achievement.threshold}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            );
+          })()}
+          {/* Modal for achievement description */}
+          <Modal
+            animationType="fade"
+            transparent={true}
+            visible={modalVisible}
+            onRequestClose={() => {
+              setModalVisible(false);
+              setSelectedAchievement(null);
+            }}
+          >
+            <TouchableWithoutFeedback onPress={() => {
+              setModalVisible(false);
+              setSelectedAchievement(null);
+            }}>
+              <View style={styles.modalOverlay}>
+                <TouchableWithoutFeedback>
+                  <View style={styles.modalView}>
+                    <Text style={styles.modalTitle}>{selectedAchievement?.name}</Text>
+                    <Text style={styles.modalDescription}>{selectedAchievement?.description}</Text>
+                    <Pressable
+                      style={styles.modalCloseButton}
+                      onPress={() => {
+                        setModalVisible(false);
+                        setSelectedAchievement(null);
+                      }}
+                    >
+                      <Text style={styles.modalCloseText}>Закрыть</Text>
+                    </Pressable>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+              </>
+            )}
+          </View>
+
           {/* Кнопка выхода */}
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Выйти</Text>
@@ -287,8 +420,17 @@ const styles = StyleSheet.create({
   },
   achievementRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
     marginBottom: 12,
+  },
+  subSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#444',
+    marginBottom: 8,
+    marginTop: 8,
+    paddingLeft: 8,
   },
   badge: {
     alignItems: 'center',
@@ -301,6 +443,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     width: 80,
+    marginBottom: 10,
   },
   badgeEmoji: {
     fontSize: 24,
@@ -348,5 +491,52 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  modalView: {
+    minWidth: 280,
+    maxWidth: 320,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  modalDescription: {
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  modalCloseButton: {
+    backgroundColor: '#ff6b6b',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalCloseText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
