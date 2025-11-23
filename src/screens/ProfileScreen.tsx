@@ -200,8 +200,8 @@ const [selectedAchievement, setSelectedAchievement] = useState<Achievement | nul
               <>
                   {achievements && (() => {
                     // Split achievements into completed and in-progress groups
-                    const completed = achievements.filter(a => a.progress === a.threshold);
-                    const inProgress = achievements.filter(a => a.progress !== a.threshold);
+                    const completed = achievements.filter(a => a.progress >= a.threshold);
+                    const inProgress = achievements.filter(a => a.progress < a.threshold);
 
                   // Sort groups by category
                   const sortByCategory = (a: typeof achievements[0], b: typeof achievements[0]) => {
@@ -217,30 +217,33 @@ const [selectedAchievement, setSelectedAchievement] = useState<Achievement | nul
                     <>
                       <Text style={styles.subSectionTitle}>Получены</Text>
                       <View style={styles.achievementRow}>
-                        {completed.map((achievement) => (
-                          <TouchableOpacity
-                            key={achievement.id}
-                            style={[
-                              styles.badge,
-                              {
-                                backgroundColor: '#e0f7fa',
-                                opacity: 1,
-                              },
-                            ]}
-                            onPress={() => {
-                              setSelectedAchievement(achievement);
-                              setModalVisible(true);
-                            }}
-                          >
-                            <Text style={styles.badgeEmoji}>{achievement.icon}</Text>
-                            <Text style={styles.badgeText} numberOfLines={2} ellipsizeMode="tail">
-                              {achievement.name}
-                            </Text>
-                            <Text style={styles.badgeText}>
-                              {achievement.progress} / {achievement.threshold}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
+                        {completed.map((achievement) => {
+                          const progressDisplay = achievement.progress >= achievement.threshold ? achievement.threshold : achievement.progress;
+                          return (
+                            <TouchableOpacity
+                              key={achievement.id}
+                              style={[
+                                styles.badge,
+                                {
+                                  backgroundColor: '#e0f7fa',
+                                  opacity: 1,
+                                },
+                              ]}
+                              onPress={() => {
+                                setSelectedAchievement(achievement);
+                                setModalVisible(true);
+                              }}
+                            >
+                              <Text style={styles.badgeEmoji}>{achievement.icon}</Text>
+                              <Text style={styles.badgeText} numberOfLines={2} ellipsizeMode="tail">
+                                {achievement.name}
+                              </Text>
+                              <Text style={styles.badgeText}>
+                                {progressDisplay} / {achievement.threshold}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                 </View>
                 <Text style={styles.subSectionTitle}>В процессе</Text>
                 <View style={styles.achievementRow}>
