@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -13,16 +14,30 @@ import { NavigationProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { useDailyMissions } from '../hooks/useMissions';
 import LoadingIndicator from '../components/LoadingIndicator';
+import { checkAchievements, CheckAchievementsResponse } from '../services/achievementsService';
 
 export default function HomeScreen() {
     // Типизируем навигацию с помощью RootStackParamList
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { data: missions, isLoading: missionsLoading, refetch } = useDailyMissions();
 
-  // Обновляем миссии при фокусе на экране
+  // Функция для вызова API проверки достижений
+  const fetchAndCheckAchievements = async () => {
+    try {
+      const result: CheckAchievementsResponse = await checkAchievements();
+      console.log('Результат проверки достижений:', result);
+      // Пока обработка результата только логом, уведомление пользователю реализуем позже
+      // При необходимости сюда можно добавить вызов модального окна
+    } catch (error) {
+      console.error('Ошибка при проверке достижений:', error);
+    }
+  };
+
+  // Обновляем миссии и вызываем проверку достижений при фокусе на экране
   useFocusEffect(
     React.useCallback(() => {
       refetch();
+      fetchAndCheckAchievements();
     }, [refetch])
   );
 

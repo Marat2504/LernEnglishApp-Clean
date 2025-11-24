@@ -18,3 +18,14 @@ export const getAchievements = async (): Promise<Achievement[]> => {
   const response = await api.get('/achievements');
   return response.data;
 };
+
+// Новая функция для проверки и разблокировки достижений пользователя
+export interface CheckAchievementsResponse {
+  message: string;
+  newlyUnlocked: string[];
+}
+
+export const checkAchievements = async (): Promise<CheckAchievementsResponse> => {
+  const response = await api.post('/achievements/check');
+  return response.data;
+};
