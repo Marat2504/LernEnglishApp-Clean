@@ -11,5 +11,9 @@ export type RootStackParamList = {
   ListeningMode: undefined;
   LightningMode: undefined;
   ChatBot: undefined;  // Интеллектуальный собеседник
+  DialogsList: undefined;
+  CreateDialog: undefined;
+  DialogSettings: { dialogId: string };
+  Chat: { dialogId: string };
   // другие экраны, если есть
 };

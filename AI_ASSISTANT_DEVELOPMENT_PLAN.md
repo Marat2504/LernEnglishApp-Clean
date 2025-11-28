@@ -51,7 +51,7 @@
   };
   ```
 
-### 1.2 Создание сервиса для чатов (`src/services/chatService.ts`)
+### 1.2 Создание сервиса для чатов (`src/services/chatService.ts`) ✅
 Создать функции для всех API эндпоинтов:
 
 ```typescript

@@ -222,7 +222,6 @@ export interface Pagination {
 
 // Create Dialog Request
 export interface CreateDialogRequest {
-  userId: string;
   topic?: string;
   difficulty?: string;
 }

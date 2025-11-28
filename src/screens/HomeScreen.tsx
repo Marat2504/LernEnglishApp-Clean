@@ -149,7 +149,7 @@ export default function HomeScreen() {
         <View style={styles.chatbotRow}>
           <TouchableOpacity
             style={styles.largeTile}
-            onPress={() => navigation.navigate('ChatBot')}
+            onPress={() => navigation.navigate('DialogsList')}
           >
             <LinearGradient colors={['#667eea', '#764ba2']} style={styles.tileGradient}>
               <Text style={styles.largeTileIcon}>🤖</Text>
