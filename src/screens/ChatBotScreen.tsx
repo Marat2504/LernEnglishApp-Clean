@@ -1,5 +1,5 @@
 // src/screens/ChatBotScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   StyleSheet,
   Image,
   Alert,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -24,15 +26,14 @@ type ChatBotScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Chat
 export default function ChatBotScreen() {
   const navigation = useNavigation<ChatBotScreenNavigationProp>();
   const route = useRoute<ChatBotScreenRouteProp>();
-  const { dialogId } = route.params || {};
+  const { dialogId } = route.params || { dialogId: '' };
+  const flatListRef = useRef<FlatList>(null);
 
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [correctionMode, setCorrectionMode] = useState(false);
   const [inputText, setInputText] = useState('');
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, hasNext: false });
 
   // Загрузка диалога и начальных сообщений
@@ -40,13 +41,24 @@ export default function ChatBotScreen() {
     loadDialog();
   }, [dialogId]);
 
+  // Автопрокрутка к нижнему сообщению при изменении сообщений
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  };
+
   const loadDialog = async () => {
     try {
       console.log('Загрузка диалога с ID:', dialogId);
       const response = await getDialog(dialogId);
       console.log('Ответ от API:', response);
       setDialog(response);
-      setMessages(response.messages);
+      setMessages(response.messages.reverse());
       setPagination(response.pagination);
     } catch (error) {
       console.error('Ошибка загрузки диалога:', error);
@@ -64,33 +76,47 @@ export default function ChatBotScreen() {
     const textToSend = inputText.trim();
     setInputText('');
 
-    try {
-      const response = correctionMode
-        ? await sendMessageWithCorrection(dialog.id, textToSend)
-        : await sendMessage(dialog.id, textToSend);
+    // Создаем сообщение пользователя
+    const userMessage: Message = {
+      id: `temp-user-${Date.now()}`,
+      dialogId: dialog.id,
+      sender: 'USER',
+      text: textToSend,
+      createdAt: new Date().toISOString(),
+    };
 
-      // Добавляем сообщение пользователя и ответ ИИ
-      setMessages(prev => [...prev, response.userMessage, response.aiMessage]);
+    // Создаем временное сообщение ИИ с загрузкой
+    const aiLoadingMessage: Message = {
+      id: `temp-ai-${Date.now()}`,
+      dialogId: dialog.id,
+      sender: 'AI',
+      text: '',
+      createdAt: new Date().toISOString(),
+      isLoading: true,
+    };
+
+    // Добавляем сообщения сразу
+    setMessages(prev => [...prev, userMessage, aiLoadingMessage]);
+
+    try {
+      const response = await sendMessage(dialog.id, textToSend);
+
+      // Заменяем временное сообщение ИИ на реальное
+      setMessages(prev => prev.map(msg =>
+        msg.id === aiLoadingMessage.id ? response.aiMessage : msg
+      ));
     } catch (error) {
       console.error('Ошибка отправки сообщения:', error);
       Alert.alert('Ошибка', 'Не удалось отправить сообщение');
-      // Возвращаем текст обратно в поле ввода
+      // Удаляем временные сообщения и возвращаем текст
+      setMessages(prev => prev.filter(msg => msg.id !== userMessage.id && msg.id !== aiLoadingMessage.id));
       setInputText(textToSend);
     } finally {
       setSending(false);
     }
   };
 
-  const toggleVoiceMode = () => {
-    setIsVoiceMode(!isVoiceMode);
-    // Имитация голосового ввода
-    if (!isVoiceMode) {
-      setTimeout(() => {
-        setInputText('Hello, how are you?');
-        setIsVoiceMode(false);
-      }, 2000);
-    }
-  };
+
 
   const renderMessage = ({ item }: { item: Message }) => (
     <View
@@ -133,42 +159,36 @@ export default function ChatBotScreen() {
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          style={styles.messagesList}
-          contentContainerStyle={styles.messagesContainer}
-          inverted={true}
-        />
+        <KeyboardAvoidingView style={styles.chatContainer} behavior="padding">
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={renderMessage}
+            style={styles.messagesList}
+            contentContainerStyle={styles.messagesContainer}
+          />
 
-        {/* Поле ввода сообщений */}
-        <View style={styles.inputWrapper}>
-          <View style={styles.inputContainer}>
-            <TouchableOpacity
-              onPress={() => setCorrectionMode(!correctionMode)}
-              style={[styles.correctionButton, correctionMode && styles.correctionButtonActive]}
-            >
-              <Text style={[styles.correctionButtonText, correctionMode && styles.correctionButtonTextActive]}>
-                ✏️
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={toggleVoiceMode} style={styles.voiceButton}>
-              <Text style={styles.voiceButtonText}>{isVoiceMode ? '🎤' : '🎙️'}</Text>
-            </TouchableOpacity>
-            <TextInput
-              style={styles.input}
-              placeholder={isVoiceMode ? "Говорите..." : "Введите сообщение..."}
-              value={inputText}
-              onChangeText={setInputText}
-              onSubmitEditing={handleSendMessage}
-              editable={!isVoiceMode && !sending}
-            />
-            <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton} disabled={sending}>
-              <Text style={styles.sendButtonText}>{sending ? '...' : '➤'}</Text>
-            </TouchableOpacity>
+          {/* Поле ввода сообщений */}
+          <View style={styles.inputWrapper}>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Введите сообщение..."
+                value={inputText}
+                onChangeText={setInputText}
+                onSubmitEditing={handleSendMessage}
+                onFocus={scrollToBottom}
+                onBlur={scrollToBottom}
+                editable={!sending}
+                multiline={true}
+              />
+              <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton} disabled={sending}>
+                <Text style={styles.sendButtonText}>{sending ? '...' : '➤'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </LinearGradient>
   );
@@ -181,6 +201,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+  },
+  chatContainer: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -278,10 +301,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e4ff',
     borderRadius: 20,
-    padding: 10,
+    padding: 15,
     fontSize: 16,
     backgroundColor: 'white',
     marginRight: 10,
+    minHeight: 50,
+    maxHeight: 100,
   },
   sendButton: {
     backgroundColor: '#667eea',
@@ -295,9 +320,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   inputWrapper: {
-    position: 'absolute',
-    bottom: 30, // Поднимаем от низа экрана на 20 пикселей
-    left: 20,
-    right: 20,
+    height: 80,
+    justifyContent: 'center',
   },
 });

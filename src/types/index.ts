@@ -200,6 +200,7 @@ export interface Message {
   correction?: string;
   explanation?: string;
   createdAt: string;
+  isLoading?: boolean;
 }
 
 // --- Correction ---
