@@ -177,33 +177,99 @@ export interface UserFavoriteQuote {
   favoritedAt: string;
 }
 
-// --- ChatDialog ---
-export interface ChatDialog {
+// --- Dialog (обновленный ChatDialog) ---
+export interface Dialog {
   id: string;
   userId: string;
-  topic?: string | null;
-  difficulty?: string | null;
+  topic?: string;
+  difficulty?: string;
+  languageLevel?: string;
   createdAt: string;
   updatedAt: string;
-  deletedAt?: string | null;
+  deletedAt?: string;
+  messageCount?: number;
 }
 
-// --- MessageSender enum ---
-export enum MessageSender {
-  USER = 'USER',
-  AI = 'AI',
-}
-
-// --- ChatMessage ---
-export interface ChatMessage {
+// --- Message (обновленный ChatMessage) ---
+export interface Message {
   id: string;
   dialogId: string;
-  sender: MessageSender;
+  sender: 'USER' | 'AI';
   text: string;
-  audioUrl?: string | null;
-  correction?: string | null;
-  explanation?: string | null;
+  audioUrl?: string;
+  correction?: string;
+  explanation?: string;
   createdAt: string;
+}
+
+// --- Correction ---
+export interface Correction {
+  correctedText: string;
+  explanation: string;
+}
+
+// --- API Request/Response Types ---
+
+// Pagination
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
+// Create Dialog Request
+export interface CreateDialogRequest {
+  userId: string;
+  topic?: string;
+  difficulty?: string;
+}
+
+// Update Dialog Request
+export interface UpdateDialogRequest {
+  topic?: string;
+  difficulty?: string;
+  languageLevel?: string;
+}
+
+// Send Message Request
+export interface SendMessageRequest {
+  text: string;
+}
+
+// Dialogs Response
+export interface DialogsResponse {
+  dialogs: Dialog[];
+  pagination: Pagination;
+}
+
+// Dialog Response
+export interface DialogResponse {
+  id: string;
+  userId: string;
+  topic?: string;
+  difficulty?: string;
+  languageLevel?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  messages: Message[];
+  pagination: Pagination;
+}
+
+// Send Message Response
+export interface SendMessageResponse {
+  userMessage: Message;
+  aiMessage: Message;
+}
+
+// Send Message with Correction Response
+export interface SendMessageWithCorrectionResponse {
+  userMessage: Message;
+  aiMessage: Message;
+  correction: Correction;
 }
 
 // --- Story ---
