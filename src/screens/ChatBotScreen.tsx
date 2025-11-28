@@ -35,6 +35,8 @@ export default function ChatBotScreen() {
   const [sending, setSending] = useState(false);
   const [inputText, setInputText] = useState('');
   const [pagination, setPagination] = useState({ page: 1, hasNext: false });
+  const [correctionMode, setCorrectionMode] = useState(false);
+  const [typingDots, setTypingDots] = useState('');
 
   // Загрузка диалога и начальных сообщений
   useEffect(() => {
@@ -45,6 +47,20 @@ export default function ChatBotScreen() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Анимация точек для индикатора печати
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTypingDots(prev => {
+        if (prev === '') return '.';
+        if (prev === '.') return '..';
+        if (prev === '..') return '...';
+        return '';
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const scrollToBottom = () => {
     if (flatListRef.current) {
@@ -60,6 +76,8 @@ export default function ChatBotScreen() {
       setDialog(response);
       setMessages(response.messages.reverse());
       setPagination(response.pagination);
+      // Прокрутка к нижнему сообщению после загрузки
+      setTimeout(() => scrollToBottom(), 100);
     } catch (error) {
       console.error('Ошибка загрузки диалога:', error);
       Alert.alert('Ошибка', `Не удалось загрузить диалог: ${(error as Error).message || 'Неизвестная ошибка'}`);
@@ -99,12 +117,24 @@ export default function ChatBotScreen() {
     setMessages(prev => [...prev, userMessage, aiLoadingMessage]);
 
     try {
-      const response = await sendMessage(dialog.id, textToSend);
+      const response = correctionMode
+        ? await sendMessageWithCorrection(dialog.id, textToSend)
+        : await sendMessage(dialog.id, textToSend);
 
       // Заменяем временное сообщение ИИ на реальное
       setMessages(prev => prev.map(msg =>
         msg.id === aiLoadingMessage.id ? response.aiMessage : msg
       ));
+
+      // Если режим коррекции, обновляем сообщение пользователя с коррекцией
+      if (correctionMode && 'correction' in response) {
+        const correctionResponse = response as any;
+        setMessages(prev => prev.map(msg =>
+          msg.id === userMessage.id
+            ? { ...msg, correction: correctionResponse.correction.correctedText, explanation: correctionResponse.correction.explanation }
+            : msg
+        ));
+      }
     } catch (error) {
       console.error('Ошибка отправки сообщения:', error);
       Alert.alert('Ошибка', 'Не удалось отправить сообщение');
@@ -129,9 +159,15 @@ export default function ChatBotScreen() {
         <Image source={{ uri: 'https://via.placeholder.com/40x40?text=AI' }} style={styles.botAvatar} />
       )}
       <View style={styles.messageContent}>
-        <Text style={styles.messageText}>{item.text}</Text>
-        {item.correction && <Text style={styles.correctionText}>{item.correction}</Text>}
-        {item.explanation && <Text style={styles.explanationText}>{item.explanation}</Text>}
+        {item.isLoading ? (
+          <Text style={styles.typingText}>Answers{typingDots}</Text>
+        ) : (
+          <>
+            <Text style={styles.messageText}>{item.text}</Text>
+            {item.correction && <Text style={styles.correctionText}>{item.correction}</Text>}
+            {item.explanation && <Text style={styles.explanationText}>{item.explanation}</Text>}
+          </>
+        )}
       </View>
     </View>
   );
@@ -172,6 +208,14 @@ export default function ChatBotScreen() {
           {/* Поле ввода сообщений */}
           <View style={styles.inputWrapper}>
             <View style={styles.inputContainer}>
+              <TouchableOpacity
+                style={[styles.correctionButton, correctionMode && styles.correctionButtonActive]}
+                onPress={() => setCorrectionMode(!correctionMode)}
+              >
+                <Text style={[styles.correctionButtonText, correctionMode && styles.correctionButtonTextActive]}>
+                  ✏️
+                </Text>
+              </TouchableOpacity>
               <TextInput
                 style={styles.input}
                 placeholder="Введите сообщение..."
@@ -256,6 +300,11 @@ const styles = StyleSheet.create({
   messageText: {
     color: '#333',
     fontSize: 16,
+  },
+  typingText: {
+    color: '#667eea',
+    fontSize: 16,
+    fontStyle: 'italic',
   },
   correctionText: {
     color: '#ff6b6b',
