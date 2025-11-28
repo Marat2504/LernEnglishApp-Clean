@@ -1,5 +1,5 @@
 // src/screens/ChatBotScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,92 +8,77 @@ import {
   FlatList,
   StyleSheet,
   Image,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types/navigation';
+import { DialogResponse, Message, Dialog } from '../types/index';
+import { getDialog, sendMessage, sendMessageWithCorrection } from '../services/chatService';
+import LoadingIndicator from '../components/LoadingIndicator';
 
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'bot';
-  correction?: string;
-  explanation?: string;
-}
+type ChatBotScreenRouteProp = RouteProp<RootStackParamList, 'ChatBot'>;
+type ChatBotScreenNavigationProp = StackNavigationProp<RootStackParamList, 'ChatBot'>;
 
 export default function ChatBotScreen() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: 'Привет! Я твой интеллектуальный собеседник. Давай поговорим на английском! Скажи что-нибудь, и я помогу с исправлениями и объяснениями.',
-      sender: 'bot',
-    },
-    {
-      id: '2',
-      text: 'Hello, I am learning English!',
-      sender: 'user',
-    },
-    {
-      id: '3',
-      text: 'Ты сказал: "Hello, I am learning English!"',
-      sender: 'bot',
-      correction: 'Исправление: Всё правильно! "I am learning" - это Present Continuous для описания текущего действия.',
-      explanation: 'Объяснение: "I am learning" означает "Я учусь" в настоящий момент. Отлично!',
-    },
-    {
-      id: '4',
-      text: 'What is your name?',
-      sender: 'user',
-    },
-    {
-      id: '5',
-      text: 'Ты сказал: "What is your name?"',
-      sender: 'bot',
-      correction: 'Исправление: Всё правильно! Это вопрос в Present Simple.',
-      explanation: 'Объяснение: "What is your name?" - стандартный вопрос. Мой "имя" - AI Assistant!',
-    },
-  ]);
+  const navigation = useNavigation<ChatBotScreenNavigationProp>();
+  const route = useRoute<ChatBotScreenRouteProp>();
+  const { dialogId } = route.params || {};
+
+  const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [correctionMode, setCorrectionMode] = useState(false);
   const [inputText, setInputText] = useState('');
   const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, hasNext: false });
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
+  // Загрузка диалога и начальных сообщений
+  useEffect(() => {
+    loadDialog();
+  }, [dialogId]);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText,
-      sender: 'user',
-    };
+  const loadDialog = async () => {
+    try {
+      console.log('Загрузка диалога с ID:', dialogId);
+      const response = await getDialog(dialogId);
+      console.log('Ответ от API:', response);
+      setDialog(response);
+      setMessages(response.messages);
+      setPagination(response.pagination);
+    } catch (error) {
+      console.error('Ошибка загрузки диалога:', error);
+      Alert.alert('Ошибка', `Не удалось загрузить диалог: ${(error as Error).message || 'Неизвестная ошибка'}`);
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    setMessages((prev) => [...prev, userMessage]);
+  const handleSendMessage = async () => {
+    if (!inputText.trim() || !dialog) return;
+
+    setSending(true);
+    const textToSend = inputText.trim();
     setInputText('');
 
-    // Имитация ответа бота с исправлениями и объяснениями
-    setTimeout(() => {
-      let botMessage: Message;
-      if (inputText.toLowerCase().includes('i am')) {
-        botMessage = {
-          id: (Date.now() + 1).toString(),
-          text: 'Ты сказал: "' + inputText + '"',
-          sender: 'bot',
-          correction: 'Исправление: "I am" - правильно, но если это "я есть", то "I am".',
-          explanation: 'Объяснение: "I am" используется для настоящего времени. Например, "I am happy" - "Я счастлив".',
-        };
-      } else if (inputText.toLowerCase().includes('go to')) {
-        botMessage = {
-          id: (Date.now() + 1).toString(),
-          text: 'Ты сказал: "' + inputText + '"',
-          sender: 'bot',
-          correction: 'Исправление: "Go to" - правильно для команды, но для описания используй "went to".',
-          explanation: 'Объяснение: "Go to" - инфинитив, "went to" - прошедшее время.',
-        };
-      } else {
-        botMessage = {
-          id: (Date.now() + 1).toString(),
-          text: 'Ты сказал: "' + inputText + '". Это звучит хорошо! Продолжай.',
-          sender: 'bot',
-        };
-      }
-      setMessages((prev) => [...prev, botMessage]);
-    }, 1000);
+    try {
+      const response = correctionMode
+        ? await sendMessageWithCorrection(dialog.id, textToSend)
+        : await sendMessage(dialog.id, textToSend);
+
+      // Добавляем сообщение пользователя и ответ ИИ
+      setMessages(prev => [...prev, response.userMessage, response.aiMessage]);
+    } catch (error) {
+      console.error('Ошибка отправки сообщения:', error);
+      Alert.alert('Ошибка', 'Не удалось отправить сообщение');
+      // Возвращаем текст обратно в поле ввода
+      setInputText(textToSend);
+    } finally {
+      setSending(false);
+    }
   };
 
   const toggleVoiceMode = () => {
@@ -111,10 +96,10 @@ export default function ChatBotScreen() {
     <View
       style={[
         styles.messageContainer,
-        item.sender === 'user' ? styles.userMessage : styles.botMessage,
+        item.sender === 'USER' ? styles.userMessage : styles.botMessage,
       ]}
     >
-      {item.sender === 'bot' && (
+      {item.sender === 'AI' && (
         <Image source={{ uri: 'https://via.placeholder.com/40x40?text=AI' }} style={styles.botAvatar} />
       )}
       <View style={styles.messageContent}>
@@ -125,10 +110,28 @@ export default function ChatBotScreen() {
     </View>
   );
 
+  if (loading) {
+    return (
+      <LinearGradient colors={['#667eea', '#764ba2']} style={styles.gradient}>
+        <View style={styles.container}>
+          <LoadingIndicator text="Загрузка диалога..." />
+        </View>
+      </LinearGradient>
+    );
+  }
+
   return (
     <LinearGradient colors={['#667eea', '#764ba2']} style={styles.gradient}>
       <View style={styles.container}>
-        <Text style={styles.title}>Интеллектуальный Собеседник</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>{dialog?.topic || 'Диалог'}</Text>
+          <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => navigation.navigate('DialogSettings', { dialogId })}
+          >
+            <Text style={styles.settingsButtonText}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
 
         <FlatList
           data={messages}
@@ -136,11 +139,20 @@ export default function ChatBotScreen() {
           renderItem={renderMessage}
           style={styles.messagesList}
           contentContainerStyle={styles.messagesContainer}
+          inverted={true}
         />
 
         {/* Поле ввода сообщений */}
         <View style={styles.inputWrapper}>
           <View style={styles.inputContainer}>
+            <TouchableOpacity
+              onPress={() => setCorrectionMode(!correctionMode)}
+              style={[styles.correctionButton, correctionMode && styles.correctionButtonActive]}
+            >
+              <Text style={[styles.correctionButtonText, correctionMode && styles.correctionButtonTextActive]}>
+                ✏️
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={toggleVoiceMode} style={styles.voiceButton}>
               <Text style={styles.voiceButtonText}>{isVoiceMode ? '🎤' : '🎙️'}</Text>
             </TouchableOpacity>
@@ -149,11 +161,11 @@ export default function ChatBotScreen() {
               placeholder={isVoiceMode ? "Говорите..." : "Введите сообщение..."}
               value={inputText}
               onChangeText={setInputText}
-              onSubmitEditing={sendMessage}
-              editable={!isVoiceMode}
+              onSubmitEditing={handleSendMessage}
+              editable={!isVoiceMode && !sending}
             />
-            <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-              <Text style={styles.sendButtonText}>➤</Text>
+            <TouchableOpacity onPress={handleSendMessage} style={styles.sendButton} disabled={sending}>
+              <Text style={styles.sendButtonText}>{sending ? '...' : '➤'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -170,12 +182,23 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  settingsButton: {
+    padding: 10,
+  },
+  settingsButtonText: {
+    fontSize: 24,
+  },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    textAlign: 'center',
-    marginBottom: 20,
+    flex: 1,
   },
   messagesList: {
     flex: 1,
@@ -225,6 +248,21 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  correctionButton: {
+    backgroundColor: '#667eea',
+    padding: 10,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  correctionButtonActive: {
+    backgroundColor: '#ff6b6b',
+  },
+  correctionButtonText: {
+    fontSize: 20,
+  },
+  correctionButtonTextActive: {
+    color: 'white',
   },
   voiceButton: {
     backgroundColor: '#667eea',
