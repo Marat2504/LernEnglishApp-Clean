@@ -100,6 +100,12 @@ export default function DialogsListScreen() {
             {item.topic || 'Без темы'}
           </Text>
           <TouchableOpacity
+            style={styles.settingsButton}
+            onPress={() => handleDialogSettings(item)}
+          >
+            <Text style={styles.settingsButtonText}>⚙️</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteDialog(item)}
           >
@@ -227,6 +233,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     flex: 1,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingsButton: {
+    padding: 5,
+    marginRight: 5,
+  },
+  settingsButtonText: {
+    fontSize: 16,
   },
   deleteButton: {
     padding: 5,

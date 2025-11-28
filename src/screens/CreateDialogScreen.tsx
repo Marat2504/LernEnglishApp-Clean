@@ -41,7 +41,7 @@ export default function CreateDialogScreen() {
       const newDialog = await createDialog(requestData);
 
       // Переход в чат с новым диалогом (заменяем экран создания на чат)
-      navigation.replace('ChatBot', { dialogId: newDialog.id });
+      navigation.replace('ChatScreen', { dialogId: newDialog.id });
     } catch (error) {
       console.error('Ошибка создания диалога:', error);
       Alert.alert('Ошибка', 'Не удалось создать диалог. Попробуйте еще раз.');

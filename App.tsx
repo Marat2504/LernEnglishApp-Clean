@@ -18,8 +18,10 @@ import MatchingModeScreen from './src/screens/MatchingModeScreen';
 import ListeningModeScreen from './src/screens/ListeningModeScreen';
 import LightningModeScreen from './src/screens/LightningModeScreen';
 import ChatBotScreen from './src/screens/ChatBotScreen';
+import ChatScreen from './src/screens/ChatScreen';
 import DialogsListScreen from './src/screens/DialogsListScreen';
 import CreateDialogScreen from './src/screens/CreateDialogScreen';
+import DialogSettingsScreen from './src/screens/DialogSettingsScreen';
 
 import { AuthProvider, AuthContext } from './src/context/AuthContext';
 
@@ -106,8 +108,10 @@ const AppStack = () => (
     <RootStack.Screen name="ListeningMode" component={ListeningModeScreen} />
     <RootStack.Screen name="LightningMode" component={LightningModeScreen} />
     <RootStack.Screen name="ChatBot" component={ChatBotScreen} />
+    <RootStack.Screen name="ChatScreen" component={ChatScreen} />
     <RootStack.Screen name="DialogsList" component={DialogsListScreen} />
     <RootStack.Screen name="CreateDialog" component={CreateDialogScreen} />
+    <RootStack.Screen name="DialogSettings" component={DialogSettingsScreen} />
   </RootStack.Navigator>
 );
 
