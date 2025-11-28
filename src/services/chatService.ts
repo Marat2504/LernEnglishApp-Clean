@@ -11,13 +11,12 @@ import {
   SendMessageWithCorrectionResponse,
 } from '../types';
 
-// Получение списка диалогов пользователя
+// Получение списка диалогов пользователя (userId берется из токена)
 export const getDialogs = async (
-  userId: string,
   page = 1,
   limit = 20
 ): Promise<DialogsResponse> => {
-  const response = await api.get(`/chat/dialogs/${userId}`, {
+  const response = await api.get('/chat/dialogs', {
     params: { page, limit },
   });
   return response.data;

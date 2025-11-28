@@ -55,13 +55,13 @@
 Создать функции для всех API эндпоинтов:
 
 ```typescript
-// Получение списка диалогов
-export const getDialogs = async (userId: string, page = 1, limit = 20) => {
-  const response = await api.get(`/chat/dialogs/${userId}`, { params: { page, limit } });
+// Получение списка диалогов (userId берется из токена)
+export const getDialogs = async (page = 1, limit = 20) => {
+  const response = await api.get('/chat/dialogs', { params: { page, limit } });
   return response.data;
 };
 
-// Создание диалога
+// Создание диалога (userId берется из токена)
 export const createDialog = async (data: CreateDialogRequest) => {
   const response = await api.post('/chat/dialog', data);
   return response.data;
