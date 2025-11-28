@@ -14,6 +14,5 @@ export type RootStackParamList = {
   DialogsList: undefined;
   CreateDialog: undefined;
   DialogSettings: { dialogId: string };
-  Chat: { dialogId: string };
   // другие экраны, если есть
 };

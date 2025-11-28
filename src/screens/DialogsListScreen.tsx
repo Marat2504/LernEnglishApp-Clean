@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { Dialog } from '../types';
@@ -41,6 +41,13 @@ export default function DialogsListScreen() {
     loadDialogs();
   }, []);
 
+  // Автоматическая загрузка данных при каждом фокусе на экране
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDialogs();
+    }, [])
+  );
+
   const onRefresh = () => {
     setRefreshing(true);
     loadDialogs();
@@ -51,7 +58,7 @@ export default function DialogsListScreen() {
   };
 
   const handleOpenDialog = (dialog: Dialog) => {
-    navigation.navigate('Chat', { dialogId: dialog.id });
+    navigation.navigate('ChatBot', { dialogId: dialog.id });
   };
 
   const handleDialogSettings = (dialog: Dialog) => {
